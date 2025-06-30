@@ -1,0 +1,45 @@
+name: Deploy KapsulKeaslianDB
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create .env file from secrets
+        run: |
+          cat <<EOF > .env
+          DB_NAME=${{ secrets.DB_NAME }}
+          DB_USERNAME=${{ secrets.DB_USERNAME }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          EOF
+
+      - name: Prepare deploy files
+        run: |
+          mkdir kapsulkeasliandb
+          mv docker-compose.yml .env kapsulkeasliandb/
+
+      - name: Copy files to Wiwokdetok Server
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          source: "kapsulkeasliandb/*"
+          target: "~/"
+
+      - name: Run on Wiwokdetok Server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd ~/kapsulkeasliandb || exit 1
+            docker-compose down || true
+            docker-compose up -d
